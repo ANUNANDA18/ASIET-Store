@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login Debug</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .warning { background: #fff3cd; color: #856404; }
+        .info { background: #d1ecf1; color: #0c5460; }
+
+        .login-form {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 16px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .step {
+            margin: 15px 0;
+            padding: 15px;
+            border-left: 4px solid #007bff;
+            background: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Admin Login Debug Tool</h1>
+        <p>This tool will help diagnose admin login issues step by step.</p>
+
+        <div id="initStatus" class="status info">
+            🔄 Initializing Firebase...
+        </div>
+
+        <div class="step">
+            <h3>Step 1: Test Admin Login</h3>
+            <div class="login-form">
+                <div class="form-group">
+                    <label for="adminEmail">Admin Email:</label>
+                    <input type="email" id="adminEmail" value="anunanda1m@gmail.com" placeholder="Enter admin email">
+                </div>
+                <div class="form-group">
+                    <label for="adminPassword">Admin Password:</label>
+                    <input type="password" id="adminPassword" value="qwerty" placeholder="Enter admin password">
+                </div>
+                <button onclick="testAdminLogin()" id="loginBtn">Test Admin Login</button>
+                <button onclick="checkUsers()">Check All Users</button>
+                <button onclick="createAdminUser()">Create Admin User</button>
+            </div>
+            <div id="loginResult"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 2: Diagnostics</h3>
+            <button onclick="checkFirebaseConfig()">Check Firebase Config</button>
+            <button onclick="checkAuthService()">Check Auth Service</button>
+            <button onclick="checkFirestoreService()">Check Firestore</button>
+            <div id="diagnosticsResult"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 3: Debug Information</h3>
+            <div id="debugInfo"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
+        import {
+            getAuth,
+            signInWithEmailAndPassword,
+            createUserWithEmailAndPassword,
+            onAuthStateChanged
+        } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js';
+        import {
+            getFirestore,
+            collection,
+            getDocs,
+            doc,
+            setDoc
+        } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js';
+
+        // 🔥 REPLACE WITH YOUR ACTUAL FIREBASE CONFIG
+              const firebaseConfig = {
+  apiKey: "AIzaSyB04Yt5zlivQhXtGMzgeZx7o1CNpdWKYHo",
+  authDomain: "mycollegestore.firebaseapp.com",
+  projectId: "mycollegestore",
+  storageBucket: "mycollegestore.firebasestorage.app",
+  messagingSenderId: "183558916777",
+  appId: "1:183558916777:web:654e4ee4b8820abf1af7b8",
+  measurementId: "G-GFJX6B7VPJ"
+};
+
+        let app, auth, db;
+        let currentUser = null;
+
+        // Initialize Firebase
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+
+            document.getElementById('initStatus').innerHTML = '✅ Firebase initialized successfully!';
+            document.getElementById('initStatus').className = 'status success';
+
+            // Listen for auth state changes
+            onAuthStateChanged(auth, (user) => {
+                currentUser = user;
+                if (user) {
+                    document.getElementById('debugInfo').innerHTML += `
+                        <div class="status success">
+                            ✅ User authenticated: ${user.email} (UID: ${user.uid})
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('debugInfo').innerHTML += `
+                        <div class="status warning">
+                            ⚠️ No user currently authenticated
+                        </div>
+                    `;
+                }
+            });
+
+        } catch (error) {
+            document.getElementById('initStatus').innerHTML = `❌ Firebase initialization failed: ${error.message}`;
+            document.getElementById('initStatus').className = 'status error';
+        }
+
+        window.testAdminLogin = async function() {
+            const email = document.getElementById('adminEmail').value;
+            const password = document.getElementById('adminPassword').value;
+            const resultDiv = document.getElementById('loginResult');
+            const loginBtn = document.getElementById('loginBtn');
+
+            if (!email || !password) {
+                resultDiv.innerHTML = '<div class="status error">❌ Please enter both email and password</div>';
+                return;
+            }
+
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Testing...';
+            resultDiv.innerHTML = '<div class="status info">🔄 Attempting admin login...</div>';
+
+            try {
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+
+                resultDiv.innerHTML = `
+                    <div class="status success">
+                        ✅ Admin login successful!
+                        <br>Email: ${user.email}
+                        <br>UID: ${user.uid}
+                        <br>Email verified: ${user.emailVerified}
+                    </div>
+                `;
+
+                // Test admin redirect logic
+                const isAdmin = email.includes('admin');
+                if (isAdmin) {
+                    resultDiv.innerHTML += `
+                        <div class="status success">
+                            ✅ Admin verification passed - would redirect to admin.html
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML += `
+                        <div class="status warning">
+                            ⚠️ Admin verification failed - email doesn't contain 'admin'
+                        </div>
+                    `;
+                }
+
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="status error">
+                        ❌ Admin login failed: ${error.code}
+                        <br>Message: ${error.message}
+                        <br>
+                        <h4>Common solutions:</h4>
+                        <ul>
+                            <li><strong>auth/user-not-found:</strong> Admin user doesn't exist - click "Create Admin User"</li>
+                            <li><strong>auth/wrong-password:</strong> Incorrect password</li>
+                            <li><strong>auth/invalid-email:</strong> Invalid email format</li>
+                            <li><strong>auth/too-many-requests:</strong> Too many failed attempts - wait a few minutes</li>
+                            <li><strong>auth/network-request-failed:</strong> Check internet connection</li>
+                        </ul>
+                    </div>
+                `;
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Test Admin Login';
+            }
+        }
+
+        window.createAdminUser = async function() {
+            const resultDiv = document.getElementById('loginResult');
+            const email = 'admin@college.com';
+            const password = 'admin123';
+
+            resultDiv.innerHTML = '<div class="status info">🔄 Creating admin user...</div>';
+
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+
+                // Store admin info in Firestore
+                await setDoc(doc(db, 'users', user.uid), {
+                    email: email,
+                    role: 'admin',
+                    name: 'Admin User',
+                    createdAt: new Date()
+                });
+
+                resultDiv.innerHTML = `
+                    <div class="status success">
+                        ✅ Admin user created successfully!
+                        <br>Email: ${email}
+                        <br>Password: ${password}
+                        <br>UID: ${user.uid}
+                        <br>Now try logging in with these credentials.
+                    </div>
+                `;
+            } catch (error) {
+                if (error.code === 'auth/email-already-in-use') {
+                    resultDiv.innerHTML = `
+                        <div class="status warning">
+                            ⚠️ Admin user already exists!
+                            <br>Try logging in with: admin@college.com / admin123
+                            <br>If password is wrong, you may need to reset it in Firebase Console.
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="status error">
+                            ❌ Failed to create admin user: ${error.code}
+                            <br>Message: ${error.message}
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        window.checkUsers = async function() {
+            const resultDiv = document.getElementById('loginResult');
+            resultDiv.innerHTML = `
+                <div class="status info">
+                    ℹ️ Cannot list users from client-side for security reasons.
+                    <br>To check users:
+                    <br>1. Go to <a href="https://console.firebase.google.com" target="_blank">Firebase Console</a>
+                    <br>2. Select your project
+                    <br>3. Go to Authentication > Users
+                    <br>4. Check if admin@college.com exists
+                </div>
+            `;
+        }
+
+        window.checkFirebaseConfig = function() {
+            const resultDiv = document.getElementById('diagnosticsResult');
+            const config = firebaseConfig;
+
+            let issues = [];
+            if (config.apiKey === 'your-api-key') issues.push('API Key not updated');
+            if (config.authDomain.includes('your-project')) issues.push('Auth Domain not updated');
+            if (config.projectId === 'your-project-id') issues.push('Project ID not updated');
+
+            if (issues.length > 0) {
+                resultDiv.innerHTML = `
+                    <div class="status error">
+                        ❌ Firebase Configuration Issues:
+                        <ul>${issues.map(issue => `<li>${issue}</li>`).join('')}</ul>
+                        <strong>Solution:</strong> Update your Firebase config with real values from Firebase Console.
+                    </div>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="status success">
+                        ✅ Firebase configuration looks good!
+                        <br>Project ID: ${config.projectId}
+                        <br>Auth Domain: ${config.authDomain}
+                    </div>
+                `;
+            }
+        }
+
+        window.checkAuthService = async function() {
+            const resultDiv = document.getElementById('diagnosticsResult');
+
+            try {
+                // Try to get current user
+                const user = auth.currentUser;
+                resultDiv.innerHTML = `
+                    <div class="status success">
+                        ✅ Authentication service is working
+                        <br>Current user: ${user ? user.email : 'None'}
+                        <br>Auth instance: ${auth ? 'Connected' : 'Not connected'}
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="status error">
+                        ❌ Authentication service error: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        window.checkFirestoreService = async function() {
+            const resultDiv = document.getElementById('diagnosticsResult');
+
+            try {
+                // Try to read from Firestore
+                const snapshot = await getDocs(collection(db, 'products'));
+                resultDiv.innerHTML = `
+                    <div class="status success">
+                        ✅ Firestore service is working
+                        <br>Products collection: ${snapshot.size} documents
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="status error">
+                        ❌ Firestore service error: ${error.code}
+                        <br>Message: ${error.message}
+                        <br>
+                        <strong>Common fixes:</strong>
+                        <br>• Make sure Firestore is enabled in Firebase Console
+                        <br>• Check Firestore security rules
+                        <br>• Ensure you're authenticated
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

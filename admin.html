@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <style>
+        /* This hides the page until the user is verified as an admin */
+        body { display: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; margin: 0; }
+        .header { background: #e74c3c; color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .header h1 { font-size: 1.5rem; }
+        .logout-btn { background: rgba(255,255,255,0.2); color: white; border: 1px solid white; padding: 0.5rem 1rem; border-radius: 5px; cursor: pointer; transition: background 0.3s; }
+        .logout-btn:hover { background: rgba(255,255,255,0.4); }
+        .container { max-width: 1100px; margin: 2rem auto; padding: 1rem; display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; }
+        .dashboard-content { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .dashboard-content h2 { margin-bottom: 1.5rem; color: #333; border-bottom: 2px solid #f1f1f1; padding-bottom: 0.75rem; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: bold; color: #555; }
+        .form-group input, .form-group textarea { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 5px; font-size: 1rem; }
+        .form-group textarea { resize: vertical; min-height: 80px; }
+        .submit-btn { width: 100%; padding: 0.75rem; background: #27ae60; color: white; border: none; border-radius: 5px; font-size: 1rem; cursor: pointer; transition: background 0.3s; }
+        .submit-btn:hover { background: #229954; }
+        #productList { display: flex; flex-direction: column; gap: 1rem; }
+        .product-item { display: grid; grid-template-columns: 1fr 80px 120px; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #eee; border-radius: 8px; }
+        .product-item .name { font-weight: bold; }
+        .product-item .stock-input { width: 100%; text-align: center; }
+        .product-item .update-btn { background: #3498db; color: white; border: none; padding: 0.5rem; border-radius: 5px; cursor: pointer; }
+        .product-item .update-btn:hover { background: #2980b9; }
+        .feedback { font-size: 0.9rem; margin-top: 1rem; font-weight: bold; }
+        .success { color: #27ae60; }
+        .error { color: #e74c3c; }
+
+        @media (max-width: 900px) {
+            .container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 id="welcomeMessage">👨‍💼 Admin Dashboard</h1>
+        <button class="logout-btn" id="logoutBtn">Logout</button>
+    </div>
+
+    <div class="container">
+        <div class="dashboard-content">
+            <h2>Add New Product</h2>
+            <form id="addProductForm">
+                <div class="form-group">
+                    <label for="productName">Product Name</label>
+                    <input type="text" id="productName" required>
+                </div>
+                <div class="form-group">
+                    <label for="productPrice">Price (₹)</label>
+                    <input type="number" id="productPrice" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="productStock">Stock Quantity</label>
+                    <input type="number" id="productStock" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="productDescription">Description</label>
+                    <textarea id="productDescription"></textarea>
+                </div>
+                <button type="submit" class="submit-btn">Add Product</button>
+                <div id="addFeedback" class="feedback"></div>
+            </form>
+        </div>
+
+        <div class="dashboard-content">
+            <h2>Manage Existing Products</h2>
+            <div id="productList">Loading products...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
+        import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js';
+        import { getFirestore, doc, getDoc, collection, addDoc, onSnapshot, updateDoc } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js';
+
+        // Your final, correct Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyB04Yt5zlivQhXtGMzgeZx7o1CNpdWKYHo",
+            authDomain: "mycollegestore.firebaseapp.com",
+            projectId: "mycollegestore",
+            storageBucket: "mycollegestore.appspot.com",
+            messagingSenderId: "183558916777",
+            appId: "1:183558916777:web:654e4ee4b8820abf1af7b8",
+            measurementId: "G-GFJX6B7VPJ"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // --- AUTHENTICATION & PAGE PROTECTION ---
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                const userDocRef = doc(db, "students", user.uid);
+                const userDocSnap = await getDoc(userDocRef);
+                if (userDocSnap.exists() && userDocSnap.data().role === 'admin') {
+                    document.body.style.display = 'grid'; // Use grid to match CSS
+                    document.getElementById('welcomeMessage').textContent = `👨‍💼 Welcome, Admin ${user.email}!`;
+                    loadProducts(); // Load products only after admin is verified
+                } else {
+                    alert("Access Denied. You are not an administrator.");
+                    window.location.href = 'index.html';
+                }
+            } else {
+                window.location.href = 'index.html';
+            }
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            signOut(auth).then(() => { window.location.href = 'index.html'; });
+        });
+
+
+        // --- ADD NEW PRODUCT LOGIC ---
+        const addProductForm = document.getElementById('addProductForm');
+        const addFeedback = document.getElementById('addFeedback');
+
+        addProductForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const name = addProductForm.productName.value;
+            const price = parseFloat(addProductForm.productPrice.value);
+            const stock = parseInt(addProductForm.productStock.value);
+            const description = addProductForm.productDescription.value;
+
+            addFeedback.textContent = '';
+            addFeedback.className = 'feedback';
+
+            try {
+                await addDoc(collection(db, 'products'), { name, price, stock, description });
+                addFeedback.textContent = '✅ Product added successfully!';
+                addFeedback.classList.add('success');
+                addProductForm.reset();
+                 setTimeout(() => { addFeedback.textContent = ''; }, 3000);
+            } catch (error) {
+                console.error("Error adding document: ", error);
+                addFeedback.textContent = '❌ Error adding product.';
+                addFeedback.classList.add('error');
+            }
+        });
+
+
+        // --- LOAD AND DISPLAY EXISTING PRODUCTS ---
+        function loadProducts() {
+            const productListDiv = document.getElementById('productList');
+            const productsCollection = collection(db, 'products');
+
+            onSnapshot(productsCollection, (snapshot) => {
+                if (snapshot.empty) {
+                    productListDiv.innerHTML = 'No products found. Add one using the form!';
+                    return;
+                }
+
+                productListDiv.innerHTML = ''; // Clear previous list
+                snapshot.forEach(doc => {
+                    const product = { id: doc.id, ...doc.data() };
+                    const productElement = document.createElement('div');
+                    productElement.className = 'product-item';
+
+                    // Use 'N/A' if stock is missing/undefined
+                    const stockValue = product.stock !== undefined ? product.stock : 'N/A';
+
+                    productElement.innerHTML = `
+                        <span class="name">${product.name}</span>
+                        <input type="number" class="stock-input" value="${stockValue}" min="0">
+                        <button class="update-btn" data-id="${product.id}">Update</button>
+                    `;
+                    productListDiv.appendChild(productElement);
+                });
+            });
+        }
+
+        // --- UPDATE STOCK LOGIC ---
+        document.getElementById('productList').addEventListener('click', async (e) => {
+            if (e.target.classList.contains('update-btn')) {
+                const button = e.target;
+                const docId = button.dataset.id;
+                const stockInput = button.previousElementSibling;
+                const newStock = parseInt(stockInput.value);
+
+                if (isNaN(newStock) || newStock < 0) {
+                    alert('Please enter a valid stock number.');
+                    return;
+                }
+
+                const docRef = doc(db, 'products', docId);
+                button.textContent = '...';
+
+                try {
+                    await updateDoc(docRef, { stock: newStock });
+                    button.textContent = 'Updated!';
+                    setTimeout(() => { button.textContent = 'Update'; }, 2000);
+                } catch (error) {
+                    console.error("Error updating stock: ", error);
+                    button.textContent = 'Error';
+                }
+            }
+        });
+
+    </script>
+</body>
+</html>
