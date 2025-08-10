@@ -1,7 +1,7 @@
 # 🎓 ASIET College Store Web Application
 
 A real-time web application for the **Adi Shankara Institute of Engineering and Technology (ASIET)** store.  
-It allows **students** to check product availability instantly and **admins** to manage inventory with ease.  
+It allows **students** to register/login, check product availability instantly, and **admins** to manage inventory with ease.  
 The app is live here 👉 **[ASIET Store](https://anunanda18.github.io/ASIET-Store/index.html)**
 
 ---
@@ -9,13 +9,13 @@ The app is live here 👉 **[ASIET Store](https://anunanda18.github.io/ASIET-Sto
 ## 🚀 Features
 
 ### 🧑‍🎓 Student View
-- **Anonymous Login** → No account needed, instant access.
+- **Student Registration & Login** → Students can create an account or log in to access the store.
 - **Product Catalog** → Browse items in a responsive grid layout.
 - **Real-Time Stock Updates** → Instantly see *In Stock* or *Out of Stock* status.
 
 ### 🛠️ Admin Dashboard
 - **Secure Login** → Email & password authentication.
-- **Full Inventory Control** → Add, delete, and update stock status.
+- **Full Inventory Control** → Add and update stock status.
 - **Live Updates** → All changes sync instantly for students.
 
 ---
@@ -66,7 +66,7 @@ cd ASIET-Store
 ### 2️⃣ Set Up Firebase
 1. Go to [Firebase Console](https://console.firebase.google.com/).
 2. Create a **new project**.
-3. Enable **Authentication** → Email/Password (for admin) + Anonymous sign-in (for students).
+3. Enable **Authentication** → Email/Password (for both students and admins).
 4. Create a **Firestore Database** in test mode.
 5. Copy your Firebase config and paste it inside `firebase-config.js`.
 
@@ -93,19 +93,6 @@ npx serve
 
 ## 🔒 Admin Credentials
 > Set your own admin account in Firebase Authentication.
-
----
-
-## 📸 Screenshots
-
-**Landing Page**  
-![Landing Page](assets/images/landing.png)
-
-**Student View**  
-![Student View](assets/images/student.png)
-
-**Admin Dashboard**  
-![Admin Dashboard](assets/images/admin.png)
 
 ---
 
